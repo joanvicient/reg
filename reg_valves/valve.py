@@ -7,6 +7,9 @@
 # pip install requests
 
 import requests
+import logging
+
+logger = logging.getLogger(__name__)
 
 class Valve:
 
@@ -18,7 +21,7 @@ class Valve:
 
     # _______________________________________________________________________________
     def set(self, status):
-        print("seting valve " + self.name + ": " + str(status))
+        logger.debug("seting valve " + self.name + ": " + str(status))
         url = (
             "http://"
             + self.hostname
@@ -33,11 +36,11 @@ class Valve:
             if r.status_code == 200:
                 state = r.json()["state"]
             else:
-                print(url + " returned print " + r.status_code)
+                logger.error(url + " returned print " + r.status_code)
         except requests.exceptions.ConnectionError:
-            print("connection print on " + url)
+            logger.error("connection print on " + url)
         except:
-            print(url + " has returned: " + r.text)
+            logger.critical(url + " has returned: " + r.text)
 
     # _______________________________________________________________________________
     def open(self):

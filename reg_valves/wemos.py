@@ -15,7 +15,6 @@ import json
 from valve import Valve
 import logging
 
-import logging
 logger = logging.getLogger(__name__)
 
 def DiscoverWemos():
@@ -52,7 +51,7 @@ def DiscoverValvesIn(hostname):
                         logger.debug('skipping empty task')
                         continue
                     elif not ':' in taskValueName:
-                        print(': not found in ' + taskValueName)
+                        logger.error(': not found in ' + taskValueName)
                         continue
                     name, gio = taskValueName.split(':')
                     logger.debug(name + ' at ' + hostname + ':' + gio)
