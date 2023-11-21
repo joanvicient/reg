@@ -6,28 +6,53 @@
 
 
 from wemos import DiscoverValves, DiscoverWemos
-from valve import Valve
+#from valve import Valve
 from mqttclient import MqttClient
+from restclient import RestClient
+import time
+import logging
+import sys
 
-class RegValves:
+def Discover():
+    valveList = []
 
-    def Discover(self):
-        self.valveList = []
+    logging.debug("### Finding Wemos ###")
+    wemosList = DiscoverWemos()
+    logging.debug(wemosList)
 
-        print("")
-        print("### Finding Wemos ###")
-        self.wemosList = DiscoverWemos()
-        print(self.wemosList)
+    logging.debug("### Finding Valves ###")
+    valveDict = DiscoverValves(wemosList)
+    for valve in valveList:
+        logging.debug(valve)
 
-        print("")
-        print("### Finding Valves ###")
-        self.valveList = DiscoverValves(self.wemosList)
-        for valve in self.valveList:
-            print(valve)
+    return valveDict
 
-    def __init__(self):
-        self.Discover()
 
 if __name__ == "__main__":
-    #regValves = RegValves()
-    mqtt = MqttClient("reg_valves")
+
+    #init logging
+    logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+
+    #init mqtt client
+    mqtt = MqttClient("reg_valves", [], None)
+
+    #initialize valves
+    discoveredValvesDict = Discover()
+    rest = RestClient()
+    storedValvesDict = rest.getValves()
+
+    logging.debug('discovered:')
+    logging.debug(discoveredValvesDict)
+    logging.debug ('stored:')
+    logging.debug(storedValvesDict)
+
+    rest.postValves(discoveredValvesDict)
+    #subscribe mqtt endpoints
+
+    storedValvesDict = rest.getValves()
+    logging.debug(storedValvesDict)
+
+    for valve in storedValvesDict:
+        logging.info('Detected: ' + str(valve))
+
+    logging.info("Init successful")

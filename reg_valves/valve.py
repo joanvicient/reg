@@ -37,7 +37,7 @@ class Valve:
         except requests.exceptions.ConnectionError:
             print("connection print on " + url)
         except:
-            print(url + " returned: " + r.text)
+            print(url + " has returned: " + r.text)
 
     # _______________________________________________________________________________
     def open(self):

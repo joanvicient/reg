@@ -13,6 +13,10 @@ import nmap
 import requests
 import json
 from valve import Valve
+import logging
+
+import logging
+logger = logging.getLogger(__name__)
 
 def DiscoverWemos():
     wemosList = []
@@ -28,7 +32,7 @@ def DiscoverWemos():
 
 
 def DiscoverValvesIn(hostname):
-    valveList = []
+    valveDict = {}
     url = "http://" + hostname + "/json"
     try:
         r = requests.get(url)
@@ -36,30 +40,40 @@ def DiscoverValvesIn(hostname):
             data = r.json()
             sensors = data["Sensors"]
             for sensor in sensors:
+                taskName = sensor['TaskName']
+                if not taskName == 'Valves':
+                    logger.debug('skipping' + taskName + ' sensor')
+                    continue
+
                 taskValues = sensor["TaskValues"]
-                #print (taskValues)
                 for taskValue in taskValues:
                     taskValueName = taskValue["Name"]
-                    #print (taskValueName)
+                    if taskValueName == "":
+                        logger.debug('skipping empty task')
+                        continue
+                    elif not ':' in taskValueName:
+                        print(': not found in ' + taskValueName)
+                        continue
                     name, gio = taskValueName.split(':')
-                    print (name)
-                    #print (gio)
-                    valve = Valve(name, hostname, gio)
-                    valveList.append(valve)
+                    logger.debug(name + ' at ' + hostname + ':' + gio)
+                    valve = {}
+                    valve['hostname'] = hostname
+                    valve['gio'] = gio
+                    valveDict[name] = valve
 
         else:
-            print(url + " returned print " + r.status_code)
+            logger.error(url + " returned print " + r.status_code)
     except requests.exceptions.ConnectionError:
-        print("connection print on " + url)
+        logger.error("connection print on " + url)
     except:
-        print(url + " returned: " + r.text)
+        logger.error(url + " returned: " + r.text)
             
 
-    return valveList
+    return valveDict
 
-def DiscoverValves(wemosList):
-    ValveList = []
-    for wemos in wemosList:
-        ValveList = ValveList + DiscoverValvesIn(wemos)
+def DiscoverValves(wemosDict):
+    ValveDict = {}
+    for wemos in wemosDict:
+        ValveDict.update(DiscoverValvesIn(wemos))
 
-    return ValveList
+    return ValveDict
