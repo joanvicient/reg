@@ -5,14 +5,33 @@
 # and keeps listening waiting for mqtt instructions
 
 #from valve import Valve
+from flask import Flask, jsonify, request
 from wemos import DiscoverValvesIn
 from mqttclient import MqttClient
 from restclient import RestClient
+import socket
 import time
 import logging
 import sys
 
 valveDict = {}
+REST_PORT = 5001
+app = Flask(__name__)
+
+@app.get('/valves')
+def get_all_valves():
+    logging.debug('GET ' + str(valveDict))
+    return jsonify(valveDict)
+
+@app.get('/valves/<string:id>')
+def get_valves(id):
+    logging.debug("GET id: " + id)
+    if id in valveDict:
+        #print(id + " exists")
+        return jsonify(valveDict[id])
+    else:
+        #print(id + ' do not exists')
+        return "Not found", 204
 
 def UpdateRegDockers(topic, payload):
     logging.debug('update reg docker')
@@ -60,6 +79,18 @@ def on_mqtt_callback(topic, payload):
     else:
         logging.debug('uncached topic: ' + topic + ' - ' + payload)
 
+def GetServerInfoDict():
+    serverInfoDict = {}
+
+    hostname=socket.gethostname()
+    IPAddr=socket.gethostbyname(hostname)
+
+    serverInfoDict['hostname'] = hostname
+    serverInfoDict['ip'] = IPAddr
+    serverInfoDict['port'] = REST_PORT
+
+    return serverInfoDict
+
 if __name__ == "__main__":
 
     #init logging
@@ -73,9 +104,13 @@ if __name__ == "__main__":
 
     #init mqtt client
     mqtt = MqttClient("reg_valves", ['esp/+', 'esp/ip4/+'], on_mqtt_callback)
+    serverInfoDict = GetServerInfoDict()
+    mqtt.publish("reg/reg_valves/info", serverInfoDict, retain = True)
 
     logging.info("Init successful")
 
+    app.run(port=REST_PORT)
+    #never gets that far
     time.sleep(62)
 
     print('')

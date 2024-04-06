@@ -3,6 +3,7 @@ import paho.mqtt.client as mqtt
 import time
 import socket
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -45,15 +46,19 @@ class MqttClient:
     def stop(self):
         self.client.loop_stop()
 
-    def publish(self, topic, message):
+    def publish(self, topic, message, retain = False):
         try:
-            result = self.client.publish(topic, message)
+            if type(message) == dict:
+                message = json.dumps(message)
+
+            result = self.client.publish(topic, message, retain=retain)
             status = result[0]
             if status == 0:
                 logger.debug("Message "+ message + " is published to topic " + topic)
             else:
                 logger.error("Failed to send message to topic " + topic)
-        except:
+        except OSError:
+        #except Exception. as e:
             logger.error("Error publishing")
 #        finally:
 #            self.client.loop_stop()
