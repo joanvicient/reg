@@ -5,11 +5,9 @@
 
 # Requirements:
 # python -m pip install --upgrade pip
-# pip install nmap
 # pip install requests
 # pip install json
 
-import nmap
 import requests
 import json
 from valve import Valve
@@ -17,62 +15,37 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def DiscoverWemos():
-    wemosList = []
-
-    nm = nmap.PortScanner()
-    nm.scan('192.168.1.2-254', '22')
-    for host in nm.all_hosts():
-        hostname = nm[host].hostname()
-        if hostname.startswith('esp'):
-            wemosList.append(hostname)
-        
-    return wemosList
-
-
-def DiscoverValvesIn(hostname):
+def DiscoverValvesIn(esp, ip):
+    logging.debug('finding valves in ' + esp)
     valveDict = {}
-    url = "http://" + hostname + "/json"
+    #https://codebeautify.org/jsonviewer
+    url = "http://" + ip + "/json"
     try:
         r = requests.get(url)
         if r.status_code == 200:
             data = r.json()
             sensors = data["Sensors"]
             for sensor in sensors:
-                taskName = sensor['TaskName']
-                if not taskName == 'Valves':
-                    logger.debug('skipping' + taskName + ' sensor')
+                taskName = str(sensor['TaskName'])
+                taskType = sensor['Type']
+                if not taskType == 'Switch input - Switch':
+                    logger.debug('skipping ' + taskName + ' sensor in ' + ip)
                     continue
 
-                taskValues = sensor["TaskValues"]
-                for taskValue in taskValues:
-                    taskValueName = taskValue["Name"]
-                    if taskValueName == "":
-                        logger.debug('skipping empty task')
-                        continue
-                    elif not ':' in taskValueName:
-                        logger.error(': not found in ' + taskValueName)
-                        continue
-                    name, gio = taskValueName.split(':')
-                    logger.debug(name + ' at ' + hostname + ':' + gio)
-                    valve = {}
-                    valve['hostname'] = hostname
-                    valve['gio'] = gio
-                    valveDict[name] = valve
-
+                taskValue = str(sensor["TaskValues"][0]["Name"])
+                logger.debug(taskValue + ' at ' + ip + ':' + taskName)
+                valve = {}
+                valve['ip'] = ip
+                valve['taskName'] = taskName
+                valve['taskValue'] = taskValue
+                valve['esp'] = esp
+                valveDict[taskName] = valve
         else:
-            logger.error(url + " returned print " + r.status_code)
+            logger.error(url + " returned error " + r.status_code)
+
     except requests.exceptions.ConnectionError:
-        logger.error("connection print on " + url)
-    except:
-        logger.error(url + " returned: " + r.text)
-            
+        logger.error("connection error on " + url)
+    #except:
+    #    logger.error(url + " returned: " + r.text)
 
     return valveDict
-
-def DiscoverValves(wemosDict):
-    ValveDict = {}
-    for wemos in wemosDict:
-        ValveDict.update(DiscoverValvesIn(wemos))
-
-    return ValveDict
