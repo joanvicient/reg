@@ -10,7 +10,6 @@
 
 import requests
 import json
-from valve import Valve
 import logging
 
 logger = logging.getLogger(__name__)
@@ -36,8 +35,8 @@ def DiscoverValvesIn(esp, ip):
                 logger.debug(taskValue + ' at ' + ip + ':' + taskName)
                 valve = {}
                 valve['ip'] = ip
-                valve['taskName'] = taskName
-                valve['taskValue'] = taskValue
+                valve['name'] = taskName
+                valve['gpio'] = taskValue[4:]
                 valve['esp'] = esp
                 valveDict[taskName] = valve
         else:
@@ -49,3 +48,28 @@ def DiscoverValvesIn(esp, ip):
     #    logger.error(url + " returned: " + r.text)
 
     return valveDict
+
+def SetWemosGpio(ip, gpio, value):
+    logger.debug("In " + ip + " seting gpio " + str(gpio) + " to " + str(value))
+    url = (
+        "http://"
+        + ip
+        + "/control?cmd=GPIO,"
+        + str(gpio)
+        + ","
+        + str(value)
+    )
+    print(url)
+    state = "print"
+    try:
+        r = requests.get(url)
+        if r.status_code == 200:
+            state = r.json()["state"]
+            logger.info('GET ' + url + " OK. Return code: " + str(state))
+        else:
+            logger.error(url + " returned print " + r.status_code)
+    except requests.exceptions.ConnectionError:
+        logger.error("connection print on " + url)
+    except:
+        logger.error(url + " returned: " + r.text)
+

@@ -6,7 +6,7 @@
 
 #from valve import Valve
 from flask import Flask, jsonify, request
-from wemos import DiscoverValvesIn
+from wemos import DiscoverValvesIn, SetWemosGpio
 from mqttclient import MqttClient
 from restclient import RestClient
 import socket
@@ -23,15 +23,59 @@ def get_all_valves():
     logging.debug('GET ' + str(valveDict))
     return jsonify(valveDict)
 
+# returns the required valve 
+# use localhost:5001/valves/espigol?value=1
+# to activate or deactivate the valve
 @app.get('/valves/<string:id>')
 def get_valves(id):
     logging.debug("GET id: " + id)
-    if id in valveDict:
-        #print(id + " exists")
-        return jsonify(valveDict[id])
-    else:
-        #print(id + ' do not exists')
+    if not id in valveDict:
         return "Not found", 204
+    else:
+        valve = valveDict[id]
+        args = request.args
+        logging.debug(args)
+        if len(args) == 0:
+            logging.debug('no args')
+            return jsonify(valve)
+        elif 'value' in args:
+            logging.debug('value in args')
+            value = args['value']
+            if value=='1' or value=='0':
+                SetWemosGpio(valve['ip'], valve['gpio'], value)
+                return 'done', 202
+            else:
+                return 'value param only accepts 0 or 1', 400
+        else:
+            logging.debug('wrong args')
+            return 'bad argument', 400
+
+# PUT localhost:5001/valves/farigola
+# with body:
+#{
+#    "value": "0"
+#}
+@app.put('/valves/<string:id>')
+def put_valves(id):
+    if not id in valveDict:
+        return id + "not found in valve dictionary", 204
+    else:
+        valve = valveDict[id]
+
+    if request.is_json:
+        body = request.get_json()
+    else:
+        return {"error": "Request must be JSON"}, 415
+
+    if not 'value' in body:
+        return "value param not found", 400
+    else:
+        value = body['value']
+        if (value == '0') or (value == '1'):
+            SetWemosGpio(valve['ip'], valve['gpio'], value)
+            return "DONE", 201
+        else:
+            return "value shall be '0' or '1'", 400
 
 def UpdateRegDockers(topic, payload):
     logging.debug('update reg docker')
@@ -97,10 +141,10 @@ if __name__ == "__main__":
     logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
     #initialize valves
-    rest = RestClient()
-    storedValvesDict = rest.getValves()
-    logging.debug ('stored:')
-    logging.debug(storedValvesDict)
+    #rest = RestClient()
+    #storedValvesDict = rest.getValves()
+    #logging.debug ('stored:')
+    #logging.debug(storedValvesDict)
 
     #init mqtt client
     mqtt = MqttClient("reg_valves", ['esp/+', 'esp/ip4/+'], on_mqtt_callback)
