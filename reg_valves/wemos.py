@@ -6,7 +6,6 @@
 # Requirements:
 # python -m pip install --upgrade pip
 # pip install requests
-# pip install json
 
 import requests
 import json

@@ -5,7 +5,7 @@
 # and keeps listening waiting for mqtt instructions
 
 #from valve import Valve
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, redirect
 from wemos import DiscoverValvesIn, SetWemosGpio
 from mqttclient import MqttClient
 from restclient import RestClient
@@ -15,9 +15,16 @@ import logging
 import sys
 
 valveDict = {}
-REST_PORT = 5001
+REST_PORT = 5001 #replaced by argument
 app = Flask(__name__)
 
+# home route that redirects to
+# valves page
+@app.route("/")
+def home():
+    return redirect("/valves")
+
+# returns all the discovered valves
 @app.get('/valves')
 def get_all_valves():
     logging.debug('GET ' + str(valveDict))
@@ -140,11 +147,23 @@ if __name__ == "__main__":
     #init logging
     logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
-    #initialize valves
-    #rest = RestClient()
-    #storedValvesDict = rest.getValves()
-    #logging.debug ('stored:')
-    #logging.debug(storedValvesDict)
+    #args
+    if len(sys.argv) == 2:
+        arg = sys.argv[1]
+        if arg.isdigit():
+            REST_PORT = arg
+        else:
+            logging.error("Error on: " + str(sys.argv))
+            logging.error('usage: ' + sys.argv[0] + ' <REST_PORT>')
+            exit(1)
+    elif len(sys.argv) > 2:
+        logging.error('usage:')
+        logging.error(' $ ' + sys.argv[0])
+        logging.error(' or')
+        logging.error(' $ ' + sys.argv[0] + ' <REST_PORT>')
+        exit(2)
+
+    logging.info('REST api available at port ' + str(REST_PORT))
 
     #init mqtt client
     mqtt = MqttClient("reg_valves", ['esp/+', 'esp/ip4/+'], on_mqtt_callback)
@@ -154,6 +173,7 @@ if __name__ == "__main__":
     logging.info("Init successful")
 
     app.run(port=REST_PORT)
+
     #never gets that far
     time.sleep(62)
 
