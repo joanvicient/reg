@@ -10,8 +10,11 @@
 import requests
 import json
 import logging
+import argparse
 
 logger = logging.getLogger(__name__)
+logging.getLogger("requests").setLevel(logging.WARNING)
+
 
 def DiscoverValvesIn(esp, ip):
     logging.debug('finding valves in ' + esp)
@@ -20,14 +23,14 @@ def DiscoverValvesIn(esp, ip):
     url = "http://" + ip + "/json"
     try:
         r = requests.get(url)
-        if r.status_code == 200:
+        if r.status_code == requests.codes.ok:
             data = r.json()
             sensors = data["Sensors"]
             for sensor in sensors:
                 taskName = str(sensor['TaskName'])
                 taskType = sensor['Type']
                 if not taskType == 'Switch input - Switch':
-                    logger.debug('skipping ' + taskName + ' sensor in ' + ip)
+                    logger.debug('skipping "' + taskName + '" sensor in ' + ip)
                     continue
 
                 taskValue = str(sensor["TaskValues"][0]["Name"])
@@ -39,12 +42,10 @@ def DiscoverValvesIn(esp, ip):
                 valve['esp'] = esp
                 valveDict[taskName] = valve
         else:
-            logger.error(url + " returned error " + r.status_code)
+           logger.error('exception on GET ' + url + ": " + r.reason + " (" + str(r.status_code) + ")")
 
-    except requests.exceptions.ConnectionError:
-        logger.error("connection error on " + url)
-    #except:
-    #    logger.error(url + " returned: " + r.text)
+    except Exception as e:
+        logger.error("exception on GET " + url + ": " + e.__class__.__name__)
 
     return valveDict
 
@@ -58,17 +59,25 @@ def SetWemosGpio(ip, gpio, value):
         + ","
         + str(value)
     )
-    print(url)
-    state = "print"
     try:
-        r = requests.get(url)
-        if r.status_code == 200:
+        r = requests.get(url, timeout=0.5)
+        if r.status_code == requests.codes.ok:
             state = r.json()["state"]
-            logger.info('GET ' + url + " OK. Return code: " + str(state))
+            logger.debug('GET ' + url + ": " + r.reason + " (" + str(r.status_code) + ") - Valve state = " + str(state))
         else:
-            logger.error(url + " returned print " + r.status_code)
-    except requests.exceptions.ConnectionError:
-        logger.error("connection print on " + url)
-    except:
-        logger.error(url + " returned: " + r.text)
+            logger.error('GET ' + url + ": " + r.reason + " (" + str(r.status_code) + ")")
 
+        return r.reason, r.status_code
+
+    except Exception as e:
+        logger.error("exception on GET " + url + ": " + e.__class__.__name__)
+
+    return "Error", 500
+
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(description='Library to interact with Wemos and its valves. Can be used alone to discover valves')
+    parser.add_argument('-i', '--ip', type=str, help='ip', dest="ip", required=True)
+    args = parser.parse_args()
+
+    DiscoverValvesIn("esp", args.ip)

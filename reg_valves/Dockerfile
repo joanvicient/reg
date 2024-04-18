@@ -50,8 +50,7 @@ COPY shared/mqttclient.py .
 COPY shared/restclient.py .
 
 # Expose the port that the application listens on.
-ENV rest_port="5001"
-EXPOSE $rest_port
+EXPOSE 5001/tcp
 
 # Run the application.
-CMD ["python3", "reg_valves.py", "5001"]
+CMD ["python3", "reg_valves.py", "-p", "5001"]

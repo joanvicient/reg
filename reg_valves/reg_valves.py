@@ -13,10 +13,37 @@ import socket
 import time
 import logging
 import sys
+import argparse
 
 valveDict = {}
-REST_PORT = 5001 #replaced by argument
 app = Flask(__name__)
+logging.getLogger('werkzeug').setLevel(logging.ERROR)
+
+@app.get("/config/")
+def get_config():
+    return "Log level: " + str(logging.getLevelName()), 200
+
+@app.patch("/config/")
+def patch_config():
+    if request.is_json:
+        body = request.get_json()
+        logging.debug('PATCH config - Body: ' + str(body))
+    else:
+        return {"error": "Request must be JSON"}, 415
+
+    if 'log_level' in body:
+        level = str(body['log_level']).upper()
+        if level == 'INFO':
+            logging.getLogger().setLevel(logging.INFO)
+            return "Loglevel INFO set", 202
+        if level == 'DEBUG':
+            logging.getLogger().setLevel(logging.DEBUG)
+            return "Log_level DEBUG set", 202
+        else:
+            logging.error('log_level ' + level + " not supported")
+            return "ERROR: log_level supported: INFO, ", 400
+    else:
+        return "log_level is the only supported parameter", 400
 
 # home route that redirects to
 # valves page
@@ -25,9 +52,10 @@ def home():
     return redirect("/valves")
 
 # returns all the discovered valves
-@app.get('/valves')
+@app.get('/valves/')
 def get_all_valves():
     logging.debug('GET ' + str(valveDict))
+    logging.info('GET valves')
     return jsonify(valveDict)
 
 # returns the required valve 
@@ -43,18 +71,17 @@ def get_valves(id):
         args = request.args
         logging.debug(args)
         if len(args) == 0:
-            logging.debug('no args')
+            logging.info('GET valves/'+valve['name'])
             return jsonify(valve)
         elif 'value' in args:
-            logging.debug('value in args')
             value = args['value']
             if value=='1' or value=='0':
-                SetWemosGpio(valve['ip'], valve['gpio'], value)
-                return 'done', 202
+                logging.info('custom POST using GET -> ' + valve['name'] + " = " + value)
+                return SetWemosGpio(valve['ip'], valve['gpio'], value)
             else:
                 return 'value param only accepts 0 or 1', 400
         else:
-            logging.debug('wrong args')
+            logging.error('wrong args: ' + str(args) + " for " + valve['name'])
             return 'bad argument', 400
 
 # PUT localhost:5001/valves/farigola
@@ -64,6 +91,7 @@ def get_valves(id):
 #}
 @app.put('/valves/<string:id>')
 def put_valves(id):
+    logging.debug('PUT valves/' + id)
     if not id in valveDict:
         return id + "not found in valve dictionary", 204
     else:
@@ -71,6 +99,7 @@ def put_valves(id):
 
     if request.is_json:
         body = request.get_json()
+        logging.debug('Body: ' + str(body))
     else:
         return {"error": "Request must be JSON"}, 415
 
@@ -79,18 +108,10 @@ def put_valves(id):
     else:
         value = body['value']
         if (value == '0') or (value == '1'):
-            SetWemosGpio(valve['ip'], valve['gpio'], value)
-            return "DONE", 201
+            logging.info('PUT valves/' + valve['name'] + " = " + value)
+            return SetWemosGpio(valve['ip'], valve['gpio'], value)
         else:
             return "value shall be '0' or '1'", 400
-
-def UpdateRegDockers(topic, payload):
-    logging.debug('update reg docker')
-    return
-
-def on_reg(topic, payload):
-    logging.debug('on_reg')
-    return
 
 def UpdateValveDict(vDict):
     for v in vDict:
@@ -102,17 +123,19 @@ def UpdateValveDict(vDict):
                 del valveDict[v]
                 valveDict[v] = vDict[v]
         else:
-            logging.debug('Adding valve: ' + str(v))
+            logging.info(' - Adding valve: ' + str(v))
             valveDict[v] = vDict[v]
 
 def on_esp(topic, payload):
     if (topic[0:7]=='esp/esp'):
         esp = topic[4:]
         if (payload == 'ON'):
-            logging.info(esp + ' is ONLINE again')
+            logging.info(esp + ' is ONLINE')
         elif (payload == 'OFF'):
-            for v in valveDict:
+            logging.info(esp + ' is OFFLINE')
+            for v in list(valveDict):
                 if (valveDict[v]['esp'] == esp):
+                    logging.info(' - Removing valve: ' + str(v))
                     del valveDict[v]
 
     elif (topic[:8]=='esp/ip4/' and payload != '0'):
@@ -120,17 +143,15 @@ def on_esp(topic, payload):
         ip = '192.168.1.' + payload
         UpdateValveDict(DiscoverValvesIn(esp, ip))
     else:
-        logging.debug(topic + ' - ' + payload)
+        logging.error(topic + ' - ' + payload)
 
 def on_mqtt_callback(topic, payload):
     if (topic[0:4] == 'esp/'):
         on_esp(topic, payload)
-    elif (topic[0:4] == 'reg/'):
-        on_reg(topic, payload)
     else:
-        logging.debug('uncached topic: ' + topic + ' - ' + payload)
+        logging.error('uncached topic: ' + topic + ' - ' + payload)
 
-def GetServerInfoDict():
+def GenerateServerInfoDict(rest_port):
     serverInfoDict = {}
 
     hostname=socket.gethostname()
@@ -138,45 +159,37 @@ def GetServerInfoDict():
 
     serverInfoDict['hostname'] = hostname
     serverInfoDict['ip'] = IPAddr
-    serverInfoDict['port'] = REST_PORT
+    serverInfoDict['port'] = rest_port
 
     return serverInfoDict
 
 if __name__ == "__main__":
 
+    parser = argparse.ArgumentParser(description='Discovers valves using MQTT and provides a REST API to controll them.')
+    parser.add_argument('-p', '--port', type=int, help='REST server port', default=5001, dest="port")
+    parser.add_argument("-l", "--log-level", type=str.upper, help='INFO or DEBUG', default="INFO", dest="log_level")
+    args = parser.parse_args()
+
     #init logging
-    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+    if args.log_level == 'DEBUG':
+        logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+    else:
+        logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
-    #args
-    if len(sys.argv) == 2:
-        arg = sys.argv[1]
-        if arg.isdigit():
-            REST_PORT = arg
-        else:
-            logging.error("Error on: " + str(sys.argv))
-            logging.error('usage: ' + sys.argv[0] + ' <REST_PORT>')
-            exit(1)
-    elif len(sys.argv) > 2:
-        logging.error('usage:')
-        logging.error(' $ ' + sys.argv[0])
-        logging.error(' or')
-        logging.error(' $ ' + sys.argv[0] + ' <REST_PORT>')
-        exit(2)
-
-    logging.info('REST api available at port ' + str(REST_PORT))
+    logging.info('Log level: ' + args.log_level)
+    logging.info('REST api available at port ' + str(args.port))
 
     #init mqtt client
     mqtt = MqttClient("reg_valves", ['esp/+', 'esp/ip4/+'], on_mqtt_callback)
-    serverInfoDict = GetServerInfoDict()
+    serverInfoDict = GenerateServerInfoDict(args.port)
     mqtt.publish("reg/reg_valves/info", serverInfoDict, retain = True)
 
     logging.info("Init successful")
 
-    app.run(port=REST_PORT)
+    app.url_map.strict_slashes = False
+    app.run(host='0.0.0.0', port=args.port)
 
     #never gets that far
-    time.sleep(62)
-
     print('')
     print('')
     print('DONE:')
