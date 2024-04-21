@@ -33,14 +33,20 @@ def DiscoverValvesIn(esp, ip):
                     logger.debug('skipping "' + taskName + '" sensor in ' + ip)
                     continue
 
-                taskValue = str(sensor["TaskValues"][0]["Name"])
-                logger.debug(taskValue + ' at ' + ip + ':' + taskName)
-                valve = {}
-                valve['ip'] = ip
-                valve['name'] = taskName
-                valve['gpio'] = taskValue[4:]
-                valve['esp'] = esp
-                valveDict[taskName] = valve
+                gpio = str(sensor["TaskValues"][0]["Name"])
+                value = str(sensor["TaskValues"][0]["Value"])
+
+                if gpio.isdigit():
+                    logger.debug(taskName + ' at ' + ip + ', gpio ' + gpio + ': ' + value)
+                    valve = {}
+                    valve['ip'] = ip
+                    valve['name'] = taskName
+                    valve['gpio'] = gpio
+                    valve['esp'] = esp
+                    valve['value'] = value
+                    valveDict[taskName] = valve
+                else:
+                    logger.info('Missconfigured ' + taskName + ' at ' + ip)
         else:
            logger.error('exception on GET ' + url + ": " + r.reason + " (" + str(r.status_code) + ")")
 

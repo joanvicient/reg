@@ -15,10 +15,13 @@ import logging
 import sys
 import argparse
 
+espDict = {}
 valveDict = {}
 app = Flask(__name__)
 logging.getLogger('werkzeug').setLevel(logging.ERROR)
 
+
+#TODO: create and add yaml to repo: https://editor.swagger.io/
 @app.get("/config/")
 def get_config():
     return "Log level: " + str(logging.getLevelName()), 200
@@ -51,6 +54,13 @@ def patch_config():
 def home():
     return redirect("/valves")
 
+# returns all the discovered wemos D1 mini
+@app.get('/esp/')
+def get_all_esp():
+    logging.debug('GET ' + str(espDict))
+    logging.info('GET esp')
+    return jsonify(espDict)
+
 # returns all the discovered valves
 @app.get('/valves/')
 def get_all_valves():
@@ -59,8 +69,7 @@ def get_all_valves():
     return jsonify(valveDict)
 
 # returns the required valve 
-# use localhost:5001/valves/espigol?value=1
-# to activate or deactivate the valve
+# TODO: force to get the current value of each valve
 @app.get('/valves/<string:id>')
 def get_valves(id):
     logging.debug("GET id: " + id)
@@ -69,29 +78,17 @@ def get_valves(id):
     else:
         valve = valveDict[id]
         args = request.args
-        logging.debug(args)
-        if len(args) == 0:
-            logging.info('GET valves/'+valve['name'])
-            return jsonify(valve)
-        elif 'value' in args:
-            value = args['value']
-            if value=='1' or value=='0':
-                logging.info('custom POST using GET -> ' + valve['name'] + " = " + value)
-                return SetWemosGpio(valve['ip'], valve['gpio'], value)
-            else:
-                return 'value param only accepts 0 or 1', 400
-        else:
-            logging.error('wrong args: ' + str(args) + " for " + valve['name'])
-            return 'bad argument', 400
+        logging.info('GET valves/'+valve['name'])
+        return jsonify(valve)
 
-# PUT localhost:5001/valves/farigola
+# PATCH localhost:5001/valves/farigola
 # with body:
 #{
 #    "value": "0"
 #}
-@app.put('/valves/<string:id>')
-def put_valves(id):
-    logging.debug('PUT valves/' + id)
+@app.patch('/valves/<string:id>')
+def patch_valves(id):
+    logging.debug('PATCH valves/' + id)
     if not id in valveDict:
         return id + "not found in valve dictionary", 204
     else:
@@ -108,11 +105,14 @@ def put_valves(id):
     else:
         value = body['value']
         if (value == '0') or (value == '1'):
-            logging.info('PUT valves/' + valve['name'] + " = " + value)
+            logging.info('PATCH valves/' + valve['name'] + " = " + value)
             return SetWemosGpio(valve['ip'], valve['gpio'], value)
         else:
             return "value shall be '0' or '1'", 400
 
+### end REST server ##################################################################
+
+### MQTT client ######################################################################
 def UpdateValveDict(vDict):
     for v in vDict:
         if v in valveDict:
@@ -126,28 +126,62 @@ def UpdateValveDict(vDict):
             logging.info(' - Adding valve: ' + str(v))
             valveDict[v] = vDict[v]
 
-def on_esp(topic, payload):
-    if (topic[0:7]=='esp/esp'):
-        esp = topic[4:]
-        if (payload == 'ON'):
-            logging.info(esp + ' is ONLINE')
-        elif (payload == 'OFF'):
-            logging.info(esp + ' is OFFLINE')
-            for v in list(valveDict):
-                if (valveDict[v]['esp'] == esp):
-                    logging.info(' - Removing valve: ' + str(v))
-                    del valveDict[v]
+def register_or_unregister_esp(esp, payload):
+    if (payload == 'ON'):
+        logging.info(esp + ' is ONLINE')
+    elif (payload == 'OFF'):
+        logging.info(esp + ' is OFFLINE')
+        for v in list(valveDict):
+            if (valveDict[v]['esp'] == esp):
+                logging.info(' - Removing valve: ' + str(v))
+                del valveDict[v]
 
-    elif (topic[:8]=='esp/ip4/' and payload != '0'):
-        esp = topic[8:]
-        ip = '192.168.1.' + payload
-        UpdateValveDict(DiscoverValvesIn(esp, ip))
+def update_esp_value(esp, key, value):
+    if esp in espDict:
+        espDict[esp][key] = value
     else:
-        logging.error(topic + ' - ' + payload)
+        newEspDict = {}
+        newEspDict[key] = value
+        espDict[esp] = newEspDict
+
+    if (key == 'ip4' and value != '0'):
+        ip = "192.168.1." + value
+        UpdateValveDict(DiscoverValvesIn(esp, ip))
+
+def update_valve_status(esp, payload):
+    if not esp in espDict:
+        return 0
+    
+    cmd = str(payload).split(',')
+    if len(cmd) is not 3:
+        return 1
+    
+    valve = cmd[0]
+    value = cmd[2]
+    
+    if not valve in valveDict:
+        return 2
+    
+    valveDict[valve]['value'] = value
 
 def on_mqtt_callback(topic, payload):
     if (topic[0:4] == 'esp/'):
-        on_esp(topic, payload)
+        #logging.debug('MQTT: ' + topic + ", with body: " + payload)
+        topic_list = str(topic).split('/')
+        if len(topic_list) == 2:
+            register_or_unregister_esp(topic_list[1], payload)
+        elif len(topic_list) == 3:
+            if topic_list[2] == 'status':
+                update_valve_status(topic_list[1], payload)
+            else:
+                logging.error('MQTT: ' + topic + ", with body: " + payload + " NOT understood")
+        elif len(topic_list) == 4:
+            if topic_list[2] == 'ip' or 'info':
+                update_esp_value(topic_list[1], topic_list[3], payload)
+            else:
+                logging.error('MQTT: ' + topic + ", with body: " + payload + " NOT understood")
+        elif len(topic_list) > 4:
+            logging.error('MQTT: ' + topic + ", with body: " + payload + " NOT understood")
     else:
         logging.error('uncached topic: ' + topic + ' - ' + payload)
 
@@ -180,7 +214,7 @@ if __name__ == "__main__":
     logging.info('REST api available at port ' + str(args.port))
 
     #init mqtt client
-    mqtt = MqttClient("reg_valves", ['esp/+', 'esp/ip4/+'], on_mqtt_callback)
+    mqtt = MqttClient("reg_valves", ['esp/#'], on_mqtt_callback)
     serverInfoDict = GenerateServerInfoDict(args.port)
     mqtt.publish("reg/reg_valves/info", serverInfoDict, retain = True)
 
@@ -195,3 +229,7 @@ if __name__ == "__main__":
     print('DONE:')
     for v in valveDict:
         print('key: ' + v + ' - Value: '+ str(valveDict[v]))
+
+    print('')
+    for esp in espDict:
+        print('key: ' + esp + ' - Value: '+ str(valveDict[esp]))
