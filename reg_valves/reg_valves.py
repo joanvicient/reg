@@ -6,7 +6,7 @@
 
 #from valve import Valve
 from flask import Flask, jsonify, request, redirect
-from wemos import DiscoverValvesIn, SetWemosGpio
+from wemos import DiscoverValvesIn, UpdateValve, SetWemosGpio
 from mqttclient import MqttClient
 from restclient import RestClient
 import socket
@@ -69,7 +69,7 @@ def get_all_valves():
     return jsonify(valveDict)
 
 # returns the required valve 
-# TODO: force to get the current value of each valve
+# it forces to get the current value of each valve
 @app.get('/valves/<string:id>')
 def get_valves(id):
     logging.debug("GET id: " + id)
@@ -77,7 +77,8 @@ def get_valves(id):
         return "Not found", 204
     else:
         valve = valveDict[id]
-        args = request.args
+        value = UpdateValve(valve['name'], valve['ip'])
+        valveDict['value'] = value
         logging.info('GET valves/'+valve['name'])
         return jsonify(valve)
 
@@ -153,7 +154,7 @@ def update_valve_status(esp, payload):
         return 0
     
     cmd = str(payload).split(',')
-    if len(cmd) is not 3:
+    if len(cmd) != 3:
         return 1
     
     valve = cmd[0]

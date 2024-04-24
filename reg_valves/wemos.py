@@ -55,6 +55,29 @@ def DiscoverValvesIn(esp, ip):
 
     return valveDict
 
+def UpdateValve(valve, ip):
+    logging.debug('updating valve ' + str(valve))
+    #https://codebeautify.org/jsonviewer
+    url = "http://" + ip + "/json"
+    value = None
+    try:
+        r = requests.get(url)
+        if r.status_code == requests.codes.ok:
+            data = r.json()
+            sensors = data["Sensors"]
+            for sensor in sensors:
+                taskName = str(sensor['TaskName'])
+                if taskName == valve:
+                    value = str(sensor["TaskValues"][0]["Value"])
+                    break
+        else:
+           logger.error('exception on GET ' + url + ": " + r.reason + " (" + str(r.status_code) + ")")
+
+    except Exception as e:
+        logger.error("exception on GET " + url + ": " + e.__class__.__name__)
+
+    return value
+
 def SetWemosGpio(ip, gpio, value):
     logger.debug("In " + ip + " seting gpio " + str(gpio) + " to " + str(value))
     url = (
