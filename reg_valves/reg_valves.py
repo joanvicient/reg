@@ -78,7 +78,7 @@ def get_valves(id):
     else:
         valve = valveDict[id]
         value = UpdateValve(valve['name'], valve['ip'])
-        valveDict['value'] = value
+        valveDict[id]['value'] = value
         logging.info('GET valves/'+valve['name'])
         return jsonify(valve)
 
