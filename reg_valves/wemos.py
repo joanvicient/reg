@@ -14,7 +14,7 @@ import argparse
 
 logger = logging.getLogger(__name__)
 logging.getLogger("requests").setLevel(logging.WARNING)
-
+logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
 
 def DiscoverValvesIn(esp, ip):
     logging.debug('finding valves in ' + esp)

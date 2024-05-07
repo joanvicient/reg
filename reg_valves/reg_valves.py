@@ -14,10 +14,16 @@ import time
 import logging
 import sys
 import argparse
+from concurrent.futures import ThreadPoolExecutor
+import threading
+
+# Create a lock
+lock = threading.Lock()
 
 espDict = {}
 valveDict = {}
 app = Flask(__name__)
+executor = ThreadPoolExecutor()
 logging.getLogger('werkzeug').setLevel(logging.ERROR)
 
 
@@ -103,13 +109,55 @@ def patch_valves(id):
 
     if not 'value' in body:
         return "value param not found", 400
+
+    value = body['value']
+    if (value != '0') and (value != '1'):
+        return "value shall be '0' or '1'", 400
+
+    if lock.acquire(blocking=False):
+        logging.info('PATCH valves/' + valve['name'] + " = " + value)
+        return SetWemosGpio(valve['ip'], valve['gpio'], value)
+        lock.release()
     else:
-        value = body['value']
-        if (value == '0') or (value == '1'):
-            logging.info('PATCH valves/' + valve['name'] + " = " + value)
-            return SetWemosGpio(valve['ip'], valve['gpio'], value)
-        else:
-            return "value shall be '0' or '1'", 400
+        return "already executing something", 500
+
+# PUT localhost:5001/reg/
+# with body:
+# {
+# "valve": "freses",
+# "duration_s": "10"
+# }
+@app.put('/reg/')
+def put_reg():
+    body = request.get_json()
+    logging.debug("PUT reg/ " + str(body))
+
+    if not request.is_json:
+        return "body shall be json", 415
+
+    if not 'valve' in body:
+        return "not valve specified in body", 400
+
+    if (not 'duration_s' in body) or (not str(body['duration_s']).isdigit()):
+        return "duration_s missing or invalid", 400
+
+    valve = str(body['valve'])
+    duration_s = int(body['duration_s'])
+
+    if lock.acquire(blocking=False):
+        logging.info('Watering ' + valve + ' during ' + str(duration_s) + ' seconds.')
+
+        #execute blocking the REST response
+        #ret = reg_task(valve, duration_s)
+        #lock.release()
+
+        # Execute the background task asynchronously
+        executor.submit(reg_task, valve, duration_s)
+        ret = "Scheduled " + valve + ' for ' + str(duration_s) + ' seconds.', 200
+    else:
+        ret = "already executing something", 500
+
+    return ret
 
 ### end REST server ##################################################################
 
@@ -152,11 +200,11 @@ def update_esp_value(esp, key, value):
 def update_valve_status(esp, payload):
     if not esp in espDict:
         return 0
-    
+
     cmd = str(payload).split(',')
     if len(cmd) != 3:
         return 1
-    
+
     valve = cmd[0]
     value = cmd[2]
     
@@ -198,6 +246,38 @@ def GenerateServerInfoDict(rest_port):
 
     return serverInfoDict
 
+## end mqtt ##########################################################################################################
+
+
+## reg tasks #########################################################################################################
+def reg_task(valve: str, duration_s: int):
+    print('watering ' + valve + ' for ' + str(duration_s) + ' seconds.')
+    if not valve in valveDict:
+        print(' unknown valve ' + valve)
+        return 'unknown valve', 400
+
+    if not 'main' in valveDict:
+        print('main valve not available')
+        return 'main not found', 500
+    
+    vDict = valveDict[valve]
+    mDict = valveDict['main']
+
+    SetWemosGpio(vDict['ip'],vDict['gpio'], '1')
+    time.sleep(1)
+    SetWemosGpio(mDict['ip'],mDict['gpio'], '1')
+    time.sleep(duration_s)
+    SetWemosGpio(mDict['ip'],mDict['gpio'], '0')
+    time.sleep(3)
+    SetWemosGpio(vDict['ip'],vDict['gpio'], '0')
+
+    print('watering ' + valve + ' done.')
+    lock.release()
+    return 'watering ' + valve + ' done.', 200
+
+## end reg tasks ######################################################################################################
+
+#######################################################################################################################
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Discovers valves using MQTT and provides a REST API to controll them.')
