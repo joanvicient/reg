@@ -8,21 +8,64 @@
 from flask import Flask, jsonify, request, redirect
 from wemos import DiscoverValvesIn, UpdateValve, SetWemosGpio
 from mqttclient import MqttClient
-from restclient import RestClient
 import socket
 import time
 import logging
-import sys
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 import threading
 
-# Create a lock
-lock = threading.Lock()
+# parser ############################################################################################################
+parser = argparse.ArgumentParser(description='Discovers valves using MQTT and provides a REST API to controll them.')
+parser.add_argument('-p', '--port', type=int, help='REST server port', default=5001, dest="port")
+parser.add_argument("-l", "--log-level", type=str.upper, help='INFO or DEBUG', default="INFO", dest="log_level")
+args = parser.parse_args()
 
+# init logging #######################################################################################################
+class ListHandler(logging.Handler):
+    def __init__(self):
+        super().__init__()
+        self.log_entries = []
+
+    def emit(self, record):
+        log_entry = {
+            'date': self.formatter.formatTime(record, "%Y-%m-%d %H:%M:%S"),
+            'level': record.levelname,
+            'name': record.name,
+            'text': record.getMessage()
+        }
+        self.log_entries.append(log_entry)
+
+# Create the custom log handler
+list_handler = ListHandler()
+
+# Configure logging
+log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+logging.basicConfig(level=logging.DEBUG, format=log_format, handlers=[list_handler])
+
+# Also log to stdout
+stdout_handler = logging.StreamHandler()
+stdout_handler.setLevel(getattr(logging, args.log_level))
+stdout_handler.setFormatter(logging.Formatter(log_format))
+logging.getLogger().addHandler(stdout_handler)
+
+logger = logging.getLogger(__name__)
+# start logs
+logger.info('Log level: ' + args.log_level)
+logger.info('REST api available at port ' + str(args.port))
+
+# Define log level priority
+log_levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+log_level_priority = {level: index for index, level in enumerate(log_levels)}
+
+# global variables #########################################################################################################
+lock = threading.Lock()
 espDict = {}
 valveDict = {}
+
+# REST server ###############################################################################################################
 app = Flask(__name__)
+app.url_map.strict_slashes = False
 executor = ThreadPoolExecutor()
 logging.getLogger('werkzeug').setLevel(logging.ERROR)
 
@@ -30,13 +73,13 @@ logging.getLogger('werkzeug').setLevel(logging.ERROR)
 #TODO: create and add yaml to repo: https://editor.swagger.io/
 @app.get("/config/")
 def get_config():
-    return "Log level: " + str(logging.getLevelName()), 200
+    return "Log level: " + str(logger.getLevelName()), 200
 
 @app.patch("/config/")
 def patch_config():
     if request.is_json:
         body = request.get_json()
-        logging.debug('PATCH config - Body: ' + str(body))
+        logger.debug('PATCH config - Body: ' + str(body))
     else:
         return {"error": "Request must be JSON"}, 415
 
@@ -49,7 +92,7 @@ def patch_config():
             logging.getLogger().setLevel(logging.DEBUG)
             return "Log_level DEBUG set", 202
         else:
-            logging.error('log_level ' + level + " not supported")
+            logger.error('log_level ' + level + " not supported")
             return "ERROR: log_level supported: INFO, ", 400
     else:
         return "log_level is the only supported parameter", 400
@@ -63,29 +106,29 @@ def home():
 # returns all the discovered wemos D1 mini
 @app.get('/esp/')
 def get_all_esp():
-    logging.debug('GET ' + str(espDict))
-    logging.info('GET esp')
+    logger.debug('GET ' + str(espDict))
+    logger.info('GET esp')
     return jsonify(espDict)
 
 # returns all the discovered valves
 @app.get('/valves/')
 def get_all_valves():
-    logging.debug('GET ' + str(valveDict))
-    logging.info('GET valves')
+    logger.debug('GET ' + str(valveDict))
+    logger.info('GET valves')
     return jsonify(valveDict)
 
 # returns the required valve 
 # it forces to get the current value of each valve
 @app.get('/valves/<string:id>')
 def get_valves(id):
-    logging.debug("GET id: " + id)
+    logger.debug("GET id: " + id)
     if not id in valveDict:
         return "Not found", 204
     else:
         valve = valveDict[id]
         value = UpdateValve(valve['name'], valve['ip'])
         valveDict[id]['value'] = value
-        logging.info('GET valves/'+valve['name'])
+        logger.info('GET valves/'+valve['name'])
         return jsonify(valve)
 
 # PATCH localhost:5001/valves/farigola
@@ -95,7 +138,7 @@ def get_valves(id):
 #}
 @app.patch('/valves/<string:id>')
 def patch_valves(id):
-    logging.debug('PATCH valves/' + id)
+    logger.debug('PATCH valves/' + id)
     if not id in valveDict:
         return id + "not found in valve dictionary", 204
     else:
@@ -103,7 +146,7 @@ def patch_valves(id):
 
     if request.is_json:
         body = request.get_json()
-        logging.debug('Body: ' + str(body))
+        logger.debug('Body: ' + str(body))
     else:
         return {"error": "Request must be JSON"}, 415
 
@@ -115,7 +158,7 @@ def patch_valves(id):
         return "value shall be '0' or '1'", 400
 
     if lock.acquire(blocking=False):
-        logging.info('PATCH valves/' + valve['name'] + " = " + value)
+        logger.info('PATCH valves/' + valve['name'] + " = " + value)
         return SetWemosGpio(valve['ip'], valve['gpio'], value)
         lock.release()
     else:
@@ -130,7 +173,7 @@ def patch_valves(id):
 @app.put('/reg/')
 def put_reg():
     body = request.get_json()
-    logging.debug("PUT reg/ " + str(body))
+    logger.debug("PUT reg/ " + str(body))
 
     if not request.is_json:
         return "body shall be json", 415
@@ -144,8 +187,11 @@ def put_reg():
     valve = str(body['valve'])
     duration_s = int(body['duration_s'])
 
+    if not valve in valveDict:
+        return 'unknown valve: ' + valve, 400
+
     if lock.acquire(blocking=False):
-        logging.info('Watering ' + valve + ' during ' + str(duration_s) + ' seconds.')
+        logger.info('Watering ' + valve + ' during ' + str(duration_s) + ' seconds.')
 
         #execute blocking the REST response
         #ret = reg_task(valve, duration_s)
@@ -159,30 +205,45 @@ def put_reg():
 
     return ret
 
-### end REST server ##################################################################
+# returns app log in json format
+@app.route('/log', methods=['GET'])
+def log_endpoint():
+    # Get the 'level' parameter from the query string (default to 'INFO' if not provided)
+    level = request.args.get('level', 'INFO').upper()
+
+    # Validate the logging level
+    if level not in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
+        return jsonify({'error': f'Invalid log level: {level}'}), 400
+
+    # Filter logs by the specified level and higher priority levels
+    min_priority = log_level_priority[level]
+    filtered_logs = [entry for entry in list_handler.log_entries if log_level_priority[entry['level']] >= min_priority]
+
+    # Return the filtered logs as part of the response
+    return jsonify(filtered_logs), 200
 
 ### MQTT client ######################################################################
 def UpdateValveDict(vDict):
     for v in vDict:
         if v in valveDict:
             if vDict[v] == valveDict[v]:
-                logging.debug('Valve already exists: ' + str(v))
+                logger.debug('Valve already exists: ' + str(v))
             else:
-                logging.debug('Valve already exists: ' + str(v) + ' with different values. Updating it')
+                logger.debug('Valve already exists: ' + str(v) + ' with different values. Updating it')
                 del valveDict[v]
                 valveDict[v] = vDict[v]
         else:
-            logging.info(' - Adding valve: ' + str(v))
+            logger.info('* Adding valve: ' + str(v))
             valveDict[v] = vDict[v]
 
 def register_or_unregister_esp(esp, payload):
     if (payload == 'ON'):
-        logging.info(esp + ' is ONLINE')
+        logger.info(esp + ' is ONLINE')
     elif (payload == 'OFF'):
-        logging.info(esp + ' is OFFLINE')
+        logger.info(esp + ' is OFFLINE')
         for v in list(valveDict):
             if (valveDict[v]['esp'] == esp):
-                logging.info(' - Removing valve: ' + str(v))
+                logger.info('* Removing valve: ' + str(v))
                 del valveDict[v]
 
 def update_esp_value(esp, key, value):
@@ -215,7 +276,7 @@ def update_valve_status(esp, payload):
 
 def on_mqtt_callback(topic, payload):
     if (topic[0:4] == 'esp/'):
-        #logging.debug('MQTT: ' + topic + ", with body: " + payload)
+        #logger.debug('MQTT: ' + topic + ", with body: " + payload)
         topic_list = str(topic).split('/')
         if len(topic_list) == 2:
             register_or_unregister_esp(topic_list[1], payload)
@@ -223,16 +284,16 @@ def on_mqtt_callback(topic, payload):
             if topic_list[2] == 'status':
                 update_valve_status(topic_list[1], payload)
             else:
-                logging.error('MQTT: ' + topic + ", with body: " + payload + " NOT understood")
+                logger.error('MQTT: ' + topic + ", with body: " + payload + " NOT understood")
         elif len(topic_list) == 4:
             if topic_list[2] == 'ip' or 'info':
                 update_esp_value(topic_list[1], topic_list[3], payload)
             else:
-                logging.error('MQTT: ' + topic + ", with body: " + payload + " NOT understood")
+                logger.error('MQTT: ' + topic + ", with body: " + payload + " NOT understood")
         elif len(topic_list) > 4:
-            logging.error('MQTT: ' + topic + ", with body: " + payload + " NOT understood")
+            logger.error('MQTT: ' + topic + ", with body: " + payload + " NOT understood")
     else:
-        logging.error('uncached topic: ' + topic + ' - ' + payload)
+        logger.error('uncached topic: ' + topic + ' - ' + payload)
 
 def GenerateServerInfoDict(rest_port):
     serverInfoDict = {}
@@ -246,18 +307,23 @@ def GenerateServerInfoDict(rest_port):
 
     return serverInfoDict
 
-## end mqtt ##########################################################################################################
-
+# init mqtt client
+mqtt = MqttClient("reg_valves", ['esp/#'], on_mqtt_callback)
+serverInfoDict = GenerateServerInfoDict(args.port)
+mqtt.publish("reg/reg_valves/info", serverInfoDict, retain = True)
+logger.info("MQTT client init successful")
 
 ## reg tasks #########################################################################################################
 def reg_task(valve: str, duration_s: int):
-    print('watering ' + valve + ' for ' + str(duration_s) + ' seconds.')
+    logger.info('watering ' + valve + ' for ' + str(duration_s) + ' seconds.')
     if not valve in valveDict:
-        print(' unknown valve ' + valve)
+        logger.error(' unknown valve ' + valve)
+        lock.release()
         return 'unknown valve', 400
 
     if not 'main' in valveDict:
-        print('main valve not available')
+        logger.error('main valve not available')
+        lock.release()
         return 'main not found', 500
     
     vDict = valveDict[valve]
@@ -272,36 +338,13 @@ def reg_task(valve: str, duration_s: int):
     SetWemosGpio(vDict['ip'],vDict['gpio'], '0')
 
     print('watering ' + valve + ' done.')
+    print('###############check this line is duplicated############')
+    logger.error('watering ' + valve + ' done.')
     lock.release()
     return 'watering ' + valve + ' done.', 200
 
-## end reg tasks ######################################################################################################
-
 #######################################################################################################################
 if __name__ == "__main__":
-
-    parser = argparse.ArgumentParser(description='Discovers valves using MQTT and provides a REST API to controll them.')
-    parser.add_argument('-p', '--port', type=int, help='REST server port', default=5001, dest="port")
-    parser.add_argument("-l", "--log-level", type=str.upper, help='INFO or DEBUG', default="INFO", dest="log_level")
-    args = parser.parse_args()
-
-    #init logging
-    if args.log_level == 'DEBUG':
-        logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
-    else:
-        logging.basicConfig(stream=sys.stdout, level=logging.INFO)
-
-    logging.info('Log level: ' + args.log_level)
-    logging.info('REST api available at port ' + str(args.port))
-
-    #init mqtt client
-    mqtt = MqttClient("reg_valves", ['esp/#'], on_mqtt_callback)
-    serverInfoDict = GenerateServerInfoDict(args.port)
-    mqtt.publish("reg/reg_valves/info", serverInfoDict, retain = True)
-
-    logging.info("Init successful")
-
-    app.url_map.strict_slashes = False
     app.run(host='0.0.0.0', port=args.port)
 
     #never gets that far
