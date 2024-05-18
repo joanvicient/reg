@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from telegram import Update
+from telegram import Update, Bot
 from telegram.ext import (
     Application,
     CommandHandler
 )
+import json
 import logging
 from io import StringIO
 
@@ -170,14 +171,46 @@ class RegTelegramBot:
 
     # _______________________________________________________________________________
     async def Handler_water(self, update, contex):
-        await update.message.reply_text("not supported")
+        import requests
+        if not 'reg_valves' in self.reg:
+            await update.message.reply_text("no reg_valve ip and port information")
+            return
+
+        cmd = self.get_cmd(update).split()
+        valve = ''
+        if len(cmd) == 2:
+            valve = cmd[1]
+        else:
+            await update.message.reply_text("Command error: " + str(cmd) + ' (' + str(len(cmd)) + ')')
+            return
+
+        ip = str(self.reg['reg_valves']['ip'])
+        port = str(self.reg['reg_valves']['port'])
+        url = 'http://' + str(ip) + ':' + str(port) + '/reg'
+        headers = {'Content-Type': 'application/json'}
+        body = { "value" : "0", "valve" : valve, "duration_s" : "10"}
+        logger.debug('PUT ' + url + ' ' + str(body))
+
+        r = requests.put(url, headers=headers, data=json.dumps(body))
+        #if r.status_code != requests.codes.ok:
+        #    logging.error('GET ' + url + ' error: ' + r.status_code)
+        #    return
+        await update.message.reply_text("Returned: " + str(r.status_code))
 
     # _______________________________________________________________________________
     async def Handler_reset(self, update, contex):
         await update.message.reply_text("not supported")
 
+    # Function to send a startup message_____________________________________________
+    async def send_message(self, text):
+        bot = Bot(token=self.token)
+        await bot.send_message(chat_id=self.chat_id, text=text)
+
     # _______________________________________________________________________________
     def __init__(self, token, chat_id, admin_id, reg={}):
+        self.token = token
+        self.chat_id = chat_id
+
         #logger
         self.stringio_handler = StringIOHandler()
         formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
@@ -208,6 +241,11 @@ class RegTelegramBot:
 
         logger.debug("log all errors")
         application.add_error_handler(self.ErrorHandler)
+
+        # TODO: needs refactor, problems with await
+        # Send the startup message
+        # import asyncio
+        # asyncio.run(self.send_message("The bot has started!"))
 
         logger.debug("Start the Bot")
         # Run the bot until the user presses Ctrl-C
