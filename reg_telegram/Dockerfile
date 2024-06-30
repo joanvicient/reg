@@ -49,4 +49,4 @@ COPY reg_telegram/telegramBot.py .
 COPY shared/mqttclient.py .
 
 # Run the application.
-CMD ["python3", "reg_telegram.py", "-l", "DEBUG"]
+CMD ["python3", "reg_telegram.py"]
