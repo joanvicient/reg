@@ -1,0 +1,34 @@
+version: '2'
+services:
+
+  reg3_valves:
+    image: jvicient/reg_valves:latest
+    networks:
+      - qnet-dhcp
+    ports:
+      - 5001:5001
+    restart: unless-stopped
+
+  reg3_watchdog:
+    image: jvicient/reg_watchdog:latest
+    networks:
+      - qnet-dhcp
+    restart: unless-stopped
+
+  reg3_water:
+    image: jvicient/reg_water:latest
+    networks:
+      - qnet-dhcp
+    ports:
+      - 5002:5002
+    restart: unless-stopped
+
+networks:
+  qnet-dhcp:
+    driver: qnet
+    driver_opts:
+      iface: "eth1"
+    ipam:
+      driver: qnet
+      options:
+        iface: "eth1"
