@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <title>Data Table</title>
+    <script>
+      function copyToForm(valve, duration_s, hour) {
+        document.getElementById('valve').value = valve;
+        document.getElementById('duration_s').value = duration_s;
+        document.getElementById('hour').value = hour;
+      }
+
+      function getWeekdayName(day) {
+        const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        return weekdays[day];
+      }
+
+      function formatWeekdays(weekdays) {
+        return weekdays.map(day => getWeekdayName(day)).join(', ');
+      }
+    </script>
+  </head>
+  <body>
+    <div class="container">
+      <h1 class="mt-5">Data Table</h1>
+      <table class="table table-bordered mt-3">
+        <thead>
+          <tr>
+            <th>Valve</th>
+            <th>Duration (s)</th>
+            <th>Weekday</th>
+            <th>Hour</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for task_id, task in tasks.items() %}
+            <tr>
+              <td>{{ task.valve }}</td>
+              <td>{{ task.duration_s }}</td>
+              <td>{{ task.weekday | join(', ') }}
+              </td>
+              <td>{{ task.hour }}</td>
+              <td>
+                <form action="/delete?hour={{ task.hour }}&valve={{ task.valve }}" method="POST" style="display:inline;">
+                  <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+                </form>
+                <button class="btn btn-secondary btn-sm" onclick="copyToForm('{{ task.valve }}', '{{ task.duration_s }}', '{{ task.hour }}')">Copy</button>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <h2 class="mt-5">Add New Item</h2>
+      <form action="/add" method="POST">
+        <div class="form-group">
+          <label for="valve">Valve</label>
+          <input type="text" class="form-control" id="valve" name="valve" required>
+        </div>
+        <div class="form-group">
+          <label for="duration_s">Duration (s)</label>
+          <input type="number" class="form-control" id="duration_s" name="duration_s" required>
+        </div>
+        <div class="form-group">
+          <br /><label>
+            <input type="checkbox" name="settings" value=0 checked>
+            Sunday
+         </label>
+         <br /><label>
+           <input type="checkbox" name="settings" value=1 checked>
+           Monday
+         </label>
+         <br /><label>
+           <input type="checkbox" name="settings" value=2 checked>
+           Tuesday
+         </label>
+         <br /><label>
+           <input type="checkbox" name="settings" value=3 checked>
+           Wednesday
+         </label>
+         <br /><label>
+           <input type="checkbox" name="settings" value=4 checked>
+           Thursday
+         </label>
+         <br /><label>
+           <input type="checkbox" name="settings" value=5 checked>
+           Friday
+         </label>
+         <br /><label>
+           <input type="checkbox" name="settings" value=6 checked>
+           Saturday
+         </label>
+        </div>
+        <div class="form-group" hidden>
+          <label for="week_day_list">Hour</label>
+          <input type="string" class="form-control" id="week_day_list" name="week_day_list" required>
+        </div>
+        <div class="form-group">
+          <label for="hour">Hour</label>
+          <input type="number" class="form-control" id="hour" name="hour" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Add Item</button>
+      </form>
+    </div>
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const rows = document.querySelectorAll('tbody tr');
+        rows.forEach(row => {
+          const weekdayCell = row.querySelector('td:nth-child(3)');
+          const weekdays = weekdayCell.textContent.split(',').map(day => parseInt(day.trim()));
+          weekdayCell.textContent = formatWeekdays(weekdays);
+        });
+      });
+
+      // Select all checkboxes with the name 'settings' using querySelectorAll.
+      var checkboxes = document.querySelectorAll("input[type=checkbox][name=settings]");
+      let weekday = []
+
+      // Use Array.forEach to add an event listener to each checkbox.
+      checkboxes.forEach(function(checkbox) {
+        checkbox.addEventListener('change', function() {
+          weekday =
+            Array.from(checkboxes) // Convert checkboxes to an array to use filter and map.
+            .filter(i => i.checked) // Use Array.filter to remove unchecked checkboxes.
+            .map(i => i.value) // Use Array.map to extract only the checkbox values from the array of objects.
+
+          var weekday_day_list = document.getElementsByName("week_day_list")[0];
+          weekday_day_list.value = weekday
+        })
+      });
+    </script>
+  </body>
+</html>
