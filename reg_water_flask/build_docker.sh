@@ -24,8 +24,8 @@ ls -la
 
 docker build -t jvicient/reg_water_flask:latest -t jvicient/reg_water_flask:$versio -f reg_water_flask/Dockerfile .
 
-# run it
-#docker run jvicient/reg_water_flask
+echo "To run it:"
+echo "docker run -p 80:80 jvicient/reg_water_flask"
 
 echo "To push to dockerhub:"
 echo "docker push jvicient/reg_water_flask:latest"
