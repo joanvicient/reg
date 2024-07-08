@@ -165,7 +165,10 @@ def del_task():
 
     body = request.get_json()
     logger.debug("PUT reg/ " + str(body))
-    task = json.loads(body)
+    if type(body) == dict:
+        task = body
+    else:
+        task = json.loads(body)
 
     #check required parameters
     if not 'valve' in task:
