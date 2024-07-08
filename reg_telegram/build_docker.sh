@@ -25,7 +25,7 @@ ls -la
 docker build -t jvicient/reg_telegram:latest -t jvicient/reg_telegram:$versio -f reg_telegram/Dockerfile .
 
 # run it
-#docker run --env-file reg_telegram/.env jvicient/reg_telegram
+#docker run --env-file reg_telegram/env_telegram jvicient/reg_telegram
 
 echo "To push to dockerhub:"
 echo "docker push jvicient/reg_telegram:latest"

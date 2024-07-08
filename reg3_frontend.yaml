@@ -3,6 +3,7 @@ services:
 
   reg3_water_flask:
     image: jvicient/reg_water_flask:latest
+    hostname: reg3waterflask
     networks:
       - qnet-dhcp
     ports:
@@ -11,6 +12,11 @@ services:
 
   reg3_telegram:
     image: jvicient/reg_telegram:latest
+    hostname: reg3telegram
+    environment:
+      - TELEGRAM_TOKEN=#copy the token without ' nor "
+      - TELEGRAM_CHAT_ID=#copy the chat id
+      - TELEGRAM_ADMIN_ID=#copy the admin id
     networks:
       - qnet-dhcp
     restart: unless-stopped
