@@ -16,7 +16,9 @@ services:
     restart: unless-stopped
 
   reg3_water:
-    image: jvicient/reg_water:latest
+    image: jvicient/reg_water:v1.1
+    volumes:
+      - reg3-data:/data
     networks:
       - qnet-dhcp
     ports:
@@ -32,3 +34,6 @@ networks:
       driver: qnet
       options:
         iface: "eth1"
+
+volumes:
+  reg3-data:
