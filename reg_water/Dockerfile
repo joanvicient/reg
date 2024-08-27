@@ -45,6 +45,7 @@ USER appuser
 # to get files from a parent file, this docker needs to
 # be build from the parent directory
 COPY reg_water/reg_water.py .
+COPY reg_water/autosavedict.py .
 COPY shared/mqttclient.py .
 COPY shared/restclient.py .
 

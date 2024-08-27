@@ -16,6 +16,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime, timedelta
 import time
 import requests
+from autosavedict import AutoSaveDict
 
 # parser ############################################################################################################
 parser = argparse.ArgumentParser(description='Handles task and provides a REST API to edit them.')
@@ -61,7 +62,7 @@ log_levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
 log_level_priority = {level: index for index, level in enumerate(log_levels)}
 
 # global variables #########################################################################################################
-taskDict = {}
+taskDict = AutoSaveDict()
 valves_url = None
 reg_url = None
 
@@ -75,7 +76,7 @@ logging.getLogger('werkzeug').setLevel(logging.ERROR)
 @app.get('/tasks/')
 def get_all_tasks():
     logger.info('GET ' + str(taskDict))
-    return jsonify(taskDict)
+    return jsonify(taskDict.to_dict())
 
 #if existing task of the same valve at the same time, updates it
 #else, adds a new task
