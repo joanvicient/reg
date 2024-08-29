@@ -123,16 +123,23 @@ class RegTelegramBot:
 
     # _______________________________________________________________________________
     async def Handler_log(self, update, contex):
+        """
+        Command /log [reg_name] [log_level]
+        if no reg_name is given, shows log of this telegram bot
+        if no log_level is given, shows DEBUG level
+        if reg_name is a valid reg name, shows the log of that reg
+        if log_level is a valid log level, shows that log level
+        """
         if not self.isAdmin(update):
             return
 
         cmd = self.get_cmd(update).split()
         ip = "0.0.0.0"
         port = "0"
-        level = "DEBUG"
+        level = "INFO"
+        log = ''
         if len(cmd) == 1:
-            log = self.stringio_handler.buffer.getvalue()
-            await update.message.reply_text(log)
+            reg = __name__
         elif len(cmd) == 2:
             reg = str(cmd[1]).lower()
             if cmd[1] in self.reg:
@@ -147,13 +154,20 @@ class RegTelegramBot:
                 ip = self.reg[reg]['ip']
                 port = self.reg[reg]['port']
             else:
-                await update.message.reply_text(reg + ' unknown')
+                await update.message.reply_text('Error: ' + reg + ' unknown')
         else:
-            await update.message.reply_text('too many arguments')
+            await update.message.reply_text('Error: too many arguments')
 
         logger.debug('requested log ' + reg + '. Level: ' + level)
-        ok, log = get_rest_log(ip, port, level=level)
-        await update.message.reply_text(log)
+        if (reg == __name__) or (reg == 'reg_telegram'):
+            log = self.stringio_handler.buffer.getvalue()
+        else:
+            ok, log = get_rest_log(ip, port, level=level)
+        # telegram messages are limited to 4096 characters
+        #logger.debug('Length of log: ' + str(len(log)))
+        #logger.debug('Type of log: ' + str(type(log)))
+        #logger.info(log)
+        await update.message.reply_text(log[-4090:])
 
     # _______________________________________________________________________________
     async def Handler_valves(self, update, contex):
@@ -282,17 +296,19 @@ def get_rest_valve_dict(ip, port, valve=''):
 # returns <ok>, <string>
 # <ok> is true if communications was ok and a json was recieved from REST server
 def get_rest_log(ip, port, level='DEBUG'):
-    valves = {}
     url = 'http://' + str(ip) + ':' + str(port) + '/log?level=' + level
     import requests
     try:
         r = requests.get(url)
         if r.status_code != requests.codes.ok:
             logging.error('GET ' + url + ' error: ' + r.status_code)
-            return False, valves
+            return False, ''
         else:
-            valves = r.json()
-            return True, valves
+            logList = r.json()
+            #print (type(logList))
+            #print (len(logList))
+            #print (len(str(logList)))
+            return True, str(logList)
     except Exception as e:
         logging.error("exception on GET " + url + ": " + e.__class__.__name__)
-        return False, valves
+        return False, ''
