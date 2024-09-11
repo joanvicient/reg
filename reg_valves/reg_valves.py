@@ -241,22 +241,45 @@ def register_or_unregister_esp(esp, payload):
         logger.info(esp + ' is ONLINE')
     elif (payload == 'OFF'):
         logger.info(esp + ' is OFFLINE')
+        #remove esp entry in espdict
+        if esp in espDict:
+            logger.info('* Removing esp: ' + esp)
+            del espDict[esp]
+        else:
+            logger.info('* Unknown esp: ' + esp)
+        #remove valves from valveDict
         for v in list(valveDict):
-            if (valveDict[v]['esp'] == esp):
+            v_esp = valveDict[v]['esp']
+            logger.debug('In ' + v_esp)
+            if (v_esp == esp):
                 logger.info('* Removing valve: ' + str(v))
                 del valveDict[v]
+            else:
+                logger.debug('* '+ v + ': ' + v_esp + ' is not ' + esp)
+    else:
+        logger.error('unknown payload for ' + esp + ': ' + payload)
 
 def update_esp_value(esp, key, value):
+    oldValue = '0'
     if esp in espDict:
+        if key in espDict[esp]:
+            oldValue = espDict[esp][key]
         espDict[esp][key] = value
     else:
         newEspDict = {}
         newEspDict[key] = value
         espDict[esp] = newEspDict
 
-    if (key == 'ip4' and value != '0'):
-        ip = "192.168.1." + value
-        UpdateValveDict(DiscoverValvesIn(esp, ip))
+    if (key == 'ip4'):
+        if value == '0':
+            logger.info('Invalid IP value for ' + esp)
+        elif value == oldValue:
+            logger.debug('Value for ' + key + ' in ' + esp + ' unchanged: ' + value)
+        else:
+            logger.info('Value for ' + key + ' in ' + esp + ' updated: ' + value)
+            ip = "192.168.1." + value
+            UpdateValveDict(DiscoverValvesIn(esp, ip))
+
 
 def update_valve_status(esp, payload):
     if not esp in espDict:
@@ -279,13 +302,22 @@ def on_mqtt_callback(topic, payload):
         #logger.debug('MQTT: ' + topic + ", with body: " + payload)
         topic_list = str(topic).split('/')
         if len(topic_list) == 2:
+            # a esp is online or offline
+            # topic: esp/<espX>
+            # payload: ON or OFF
             register_or_unregister_esp(topic_list[1], payload)
         elif len(topic_list) == 3:
+            # a valve value has changed
+            # topic: esp/<espX>/status
+            # payload: <value>
+            # TODO: can return an error!!!!!!!
             if topic_list[2] == 'status':
                 update_valve_status(topic_list[1], payload)
             else:
                 logger.error('MQTT: ' + topic + ", with body: " + payload + " NOT understood")
         elif len(topic_list) == 4:
+            # an esp statistic has been reported
+            # topic: esp/<espX>/ip or esp/<espX>/info
             if topic_list[2] == 'ip' or 'info':
                 update_esp_value(topic_list[1], topic_list[3], payload)
             else:
