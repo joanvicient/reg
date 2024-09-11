@@ -11,7 +11,7 @@ services:
     restart: unless-stopped
 
   reg3_telegram:
-    image: jvicient/reg_telegram:latest
+    image: jvicient/reg_telegram:v1.1
     hostname: reg3telegram
     environment:
       - TELEGRAM_TOKEN=#copy the token without ' nor "
