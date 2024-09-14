@@ -309,10 +309,12 @@ def on_mqtt_callback(topic, payload):
         elif len(topic_list) == 3:
             # a valve value has changed
             # topic: esp/<espX>/status
+            # topic: esp/<espX>/<planta>/<gpio>
             # payload: <value>
-            # TODO: can return an error!!!!!!!
             if topic_list[2] == 'status':
-                update_valve_status(topic_list[1], payload)
+                # TODO: can return an error!!!!!!!
+                # update_valve_status(topic_list[1], payload)
+                logger.debug('Not using MQTT: ' + topic + ", with body: " + payload)
             else:
                 logger.error('MQTT: ' + topic + ", with body: " + payload + " NOT understood")
         elif len(topic_list) == 4:
@@ -322,7 +324,7 @@ def on_mqtt_callback(topic, payload):
                 update_esp_value(topic_list[1], topic_list[3], payload)
             else:
                 logger.error('MQTT: ' + topic + ", with body: " + payload + " NOT understood")
-        elif len(topic_list) > 4:
+        else:
             logger.error('MQTT: ' + topic + ", with body: " + payload + " NOT understood")
     else:
         logger.error('uncached topic: ' + topic + ' - ' + payload)
