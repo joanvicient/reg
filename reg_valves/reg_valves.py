@@ -263,6 +263,8 @@ def update_esp_value(esp, key, value):
     oldValue = '0'
     if esp in espDict:
         if key in espDict[esp]:
+            if espDict[esp][key] != value:
+                logger.debug('Value for ' + key + ' in ' + esp + ' changed: ' + value)
             oldValue = espDict[esp][key]
         espDict[esp][key] = value
     else:
@@ -270,16 +272,23 @@ def update_esp_value(esp, key, value):
         newEspDict[key] = value
         espDict[esp] = newEspDict
 
-    if (key == 'ip4'):
-        if value == '0':
-            logger.info('Invalid IP value for ' + esp)
-        elif value == oldValue:
-            logger.debug('Value for ' + key + ' in ' + esp + ' unchanged: ' + value)
-        else:
-            logger.info('Value for ' + key + ' in ' + esp + ' updated: ' + value)
-            ip = "192.168.1." + value
-            UpdateValveDict(DiscoverValvesIn(esp, ip))
+    if key.startswith('ip'):
+        if not 'ip1' in espDict[esp] or espDict[esp]['ip1'] == '0':
+            #print('Invalid IP1 value for ' + esp)
+            return
+        if not 'ip2' in espDict[esp] or espDict[esp]['ip2'] == '0':
+            #print('Invalid IP2 value for ' + esp)
+            return
+        if not 'ip3' in espDict[esp]:
+            #print('Invalid IP3 value for ' + esp)
+            return
+        if not 'ip4' in espDict[esp] or espDict[esp]['ip4'] == '0':
+            #print('Invalid IP4 value for ' + esp)
+            return
 
+        ip = espDict[esp]['ip1'] + "." + espDict[esp]['ip2'] + "." + espDict[esp]['ip3'] + "." + espDict[esp]['ip4']
+        logger.debug("looking for valves at " + ip)
+        UpdateValveDict(DiscoverValvesIn(esp, ip))
 
 def update_valve_status(esp, payload):
     if not esp in espDict:
@@ -390,4 +399,4 @@ if __name__ == "__main__":
 
     print('')
     for esp in espDict:
-        print('key: ' + esp + ' - Value: '+ str(valveDict[esp]))
+        print('key: ' + esp + ' - Value: '+ str(espDict[esp]))

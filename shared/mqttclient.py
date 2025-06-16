@@ -22,7 +22,7 @@ class MqttClient:
         self.topicCallback(msg.topic, msg.payload.decode("utf-8", "strict"))
 
     def __init__(self, id, topicList, topicCallback):
-        self.broker_hostname = "192.168.1.10"
+        self.broker_hostname = "nasf8b4c9.local"
         self.port = 1883
         self.id = id
         self.topicList = topicList
