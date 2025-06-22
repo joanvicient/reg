@@ -22,7 +22,7 @@ else
 fi
 
 if [ "$1" = "build" ]; then
-    docker build -t $tag - < $docker_file
+    docker build -t $tag -f $docker_file .
 elif [ "$1" = "publish" ]; then
     docker push jvicient/$project:$tagname
 else
