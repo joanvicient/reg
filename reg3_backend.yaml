@@ -2,7 +2,7 @@ version: '2'
 services:
 
   reg3_valves:
-    image: jvicient/reg_valves:v1.1
+    image: jvicient/reg_valves:v1.2
     networks:
       - qnet-dhcp
     ports:
