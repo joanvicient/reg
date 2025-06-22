@@ -2,6 +2,7 @@
 import paho.mqtt.client as mqtt
 import logging
 import json
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -22,11 +23,19 @@ class MqttClient:
         self.topicCallback(msg.topic, msg.payload.decode("utf-8", "strict"))
 
     def __init__(self, id, topicList, topicCallback):
-        self.broker_hostname = "nasf8b4c9.local"
+        self.broker_hostname = "192.168.1.10"
         self.port = 1883
         self.id = id
         self.topicList = topicList
         self.topicCallback = topicCallback
+
+        #get mqtt broker hostname from env
+        if 'MQTT_BROKER_HOST' in os.environ:
+            self.broker_hostname = os.environ['MQTT_BROKER_HOST']
+            logger.debug("MQTT_BROKER_HOST set to " + self.broker_hostname)
+        if 'MQTT_BROKER_PORT' in os.environ:
+            self.port = int(os.environ['MQTT_BROKER_PORT'])
+            logger.debug("MQTT_BROKER_PORT set to " + str(self.port))
 
         self.client = mqtt.Client(self.id)
         self.client.on_connect=self.on_connect
