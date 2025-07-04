@@ -76,7 +76,7 @@ logging.getLogger('werkzeug').setLevel(logging.ERROR)
 @app.get('/tasks/')
 def get_all_tasks():
     logger.info('GET ' + str(taskDict))
-    return jsonify(taskDict.to_dict())
+    return jsonify(taskDict)
 
 #if existing task of the same valve at the same time, updates it
 #else, adds a new task
@@ -256,9 +256,9 @@ def water(valve : str, duration_s : int):
 
             requests.put(reg_url, headers=headers, data=json.dumps(body))
 
-def my_hourly_task():
+def my_watering_task():
     with app.app_context():
-        logger.debug("Hourly task is running at " + datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+        logger.debug("Watering task is running at " + datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
 
         # Get the current date and time
         now = datetime.now()
@@ -266,17 +266,18 @@ def my_hourly_task():
         current_hour = now.hour
 
         jobs = []
+        #logger.debug('taskDict: ' + str(taskDict))
         for task_name in taskDict:
             task = taskDict[task_name]
-            logger.debug(task)
             if current_weekday not in task['weekday']:
-                logger.debug('not today')
+                logger.debug(task['valve'] + ' not today')
                 continue
 
             if current_hour != task['hour']:
-                logger.debug('not now')
+                logger.debug(task['valve'] + ' not now')
                 continue
 
+            logger.debug('Appending task for ' + task['valve'])
             jobs.append(task)
 
         #start jobs
@@ -286,7 +287,7 @@ def my_hourly_task():
 
         logger.info('Watering done!')
 
-def my_minutely_task():
+def my_logging_task():
     with app.app_context():
         logger.debug("Minutely task is running at " + datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
         return
@@ -315,17 +316,18 @@ def my_one_time_task():
                 pass
 
         logger.info('Watering!')
-        my_hourly_task()
+        my_watering_task()
         logger.info('One-time task done!')
 
 # Initialize the scheduler
 scheduler = BackgroundScheduler()
-scheduler.add_job(my_hourly_task, 'cron', minute=0)
-#scheduler.add_job(my_minutely_task, 'cron', second=0)
+scheduler.add_job(my_watering_task, 'cron', minute=0)
+#scheduler.add_job(my_logging_task, 'cron', second=0)
 
 # Schedule the one-time task to run a few seconds after the program starts
 # debug task
 # scheduler.add_job(my_one_time_task, 'date', run_date=datetime.now() + timedelta(seconds=5))
+# scheduler.add_job(my_watering_task, 'cron', second=0)
 
 scheduler.start()
 
