@@ -53,4 +53,4 @@ COPY shared/restclient.py .
 EXPOSE 5001/tcp
 
 # Run the application.
-CMD ["python3", "reg_valves.py", "-p", "5001"]
+CMD ["python3", "reg_valves.py", "-p", "5001", "-l", "DEBUG"]

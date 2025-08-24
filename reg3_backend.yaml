@@ -2,21 +2,25 @@ version: '2'
 services:
 
   reg3_valves:
-    image: jvicient/reg_valves:v1.2
+    image: jvicient/reg_valves:v1.3
     networks:
       - qnet-dhcp
     ports:
       - 5001:5001
     restart: unless-stopped
+    stdin_open: true
+    tty: true
 
   reg3_watchdog:
     image: jvicient/reg_watchdog:latest
     networks:
       - qnet-dhcp
     restart: unless-stopped
+    stdin_open: true
+    tty: true
 
   reg3_water:
-    image: jvicient/reg_water:v1.1
+    image: jvicient/reg_water:v1.2
     volumes:
       - reg3-data:/data
     networks:
@@ -24,6 +28,8 @@ services:
     ports:
       - 5002:5002
     restart: unless-stopped
+    stdin_open: true
+    tty: true
 
 networks:
   qnet-dhcp:

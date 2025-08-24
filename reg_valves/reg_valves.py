@@ -335,6 +335,9 @@ def on_mqtt_callback(topic, payload):
                 logger.error('MQTT: ' + topic + ", with body: " + payload + " NOT understood")
         else:
             logger.error('MQTT: ' + topic + ", with body: " + payload + " NOT understood")
+
+        mqtt.publish('reg/reg_valves/esp', espDict, retain = True)
+        mqtt.publish('reg/reg_valves/valves', valveDict, retain = True)
     else:
         logger.error('uncached topic: ' + topic + ' - ' + payload)
 
