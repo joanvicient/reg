@@ -13,7 +13,7 @@ class AutoSaveDict(dict):
         else:
             self.file_name = '/tmp/autosave.pickle'
 
-        logger.debug(f"Using autosave file {self.file_name}")
+        logger.info(f"Using autosave file {self.file_name}")
         super().update(self.load_dict())
 
     def load_dict(self):
