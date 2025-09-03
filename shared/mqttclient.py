@@ -14,6 +14,8 @@ class MqttClient:
     def on_connect(self, client, userdata, flags, return_code):
         if return_code == 0:
             logger.debug("(free thread)connected to mqtt broker at " + self.broker_hostname)
+            for topic in self.topicList:
+                self.client.subscribe(topic)
         else:
             logger.debug("(free thread)could not connect, return code:", return_code)
 
@@ -37,7 +39,7 @@ class MqttClient:
             self.port = int(os.environ['MQTT_BROKER_PORT'])
             logger.debug("MQTT_BROKER_PORT set to " + str(self.port))
 
-        self.client = mqtt.Client(self.id)
+        self.client = mqtt.Client(self.id, clean_session=False)
         self.client.on_connect=self.on_connect
         self.client.on_message = self.on_message
         self.client.will_set("reg/"+self.id, payload="OFF", qos=0, retain=True)
@@ -45,8 +47,6 @@ class MqttClient:
         #self.client.loop_forever() #blocks execution
         self.client.loop_start() #creates new thread
         #self.loop_publish_id()
-        for topic in topicList:
-            self.client.subscribe(topic)
 
         self.client.publish("reg/"+self.id,payload="ON", qos=0, retain=True)
 
