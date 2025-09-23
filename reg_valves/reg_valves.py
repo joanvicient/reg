@@ -6,7 +6,7 @@
 
 #from valve import Valve
 from flask import Flask, jsonify, request, redirect
-from wemos import DiscoverValvesIn, UpdateValve, SetWemosGpio
+from wemos import DiscoverValvesIn, GetValveValue, SetWemosGpio
 from mqttclient import MqttClient
 import socket
 import time
@@ -126,7 +126,7 @@ def get_valves(id):
         return "Not found", 204
     else:
         valve = valveDict[id]
-        value = UpdateValve(valve['name'], valve['ip'])
+        value = GetValveValue(valve['name'], valve['ip'])
         valveDict[id]['value'] = value
         logger.info('GET valves/'+valve['name'])
         return jsonify(valve)
@@ -383,8 +383,6 @@ def reg_task(valve: str, duration_s: int):
     time.sleep(3)
     SetWemosGpio(vDict['ip'],vDict['gpio'], '0')
 
-    print('watering ' + valve + ' done.')
-    print('###############check this line is duplicated############')
     logger.error('watering ' + valve + ' done.')
     lock.release()
     return 'watering ' + valve + ' done.', 200

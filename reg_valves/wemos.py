@@ -55,7 +55,7 @@ def DiscoverValvesIn(esp, ip):
 
     return valveDict
 
-def UpdateValve(valve, ip):
+def GetValveValue(valve, ip):
     logging.debug('updating valve ' + str(valve))
     #https://codebeautify.org/jsonviewer
     url = "http://" + ip + "/json"
@@ -105,8 +105,22 @@ def SetWemosGpio(ip, gpio, value):
 
 if __name__ == "__main__":
 
+    logger.setLevel(logging.INFO)
+
     parser = argparse.ArgumentParser(description='Library to interact with Wemos and its valves. Can be used alone to discover valves')
     parser.add_argument('-i', '--ip', type=str, help='ip', dest="ip", required=True)
     args = parser.parse_args()
 
-    DiscoverValvesIn("esp", args.ip)
+    print("TESTING: DiscoverValvesIn ")
+    valveDict = DiscoverValvesIn("esp", args.ip)
+    print(valveDict)
+
+    print("TESTING: UpdateValve ")
+    valve = str(list(valveDict.keys())[0])
+    print('Valve ' + valve + ' value: ' + str(GetValveValue(valve, args.ip)))
+
+    print("TESTING: SetWemosGpio ")
+    print("Enabling valve: " + str(SetWemosGpio(args.ip, 0, 1)))
+    print("Disabling valve: " + str(SetWemosGpio(args.ip, 0, 0)))
+
+    logger.info('done')
