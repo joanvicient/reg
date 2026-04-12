@@ -60,7 +60,7 @@ if __name__ == "__main__":
         logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='%(asctime)s - %(module)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
     logging.info('Log level: ' + args.log_level)
-    logging.debug('TELEGRAM - Token: ' + token + '. Admin: ' + admin_id + '. Chat: ' + chat_id)
+    logging.debug('TELEGRAM - Token: ' + str(token) + '. Admin: ' + str(admin_id) + '. Chat: ' + str(chat_id))
 
     #init mqtt client
     mqtt = MqttClient("reg_telegram", ['telegram/#', 'reg/#'], on_mqtt_callback)
