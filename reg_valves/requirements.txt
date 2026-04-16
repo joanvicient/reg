@@ -1,3 +1,4 @@
-Flask==3.0.0
 requests==2.25.1
 paho-mqtt==1.6.1
+fastapi==0.135.3
+uvicorn==0.44.0

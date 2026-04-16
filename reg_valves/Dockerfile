@@ -6,7 +6,7 @@
 
 # Want to help us make this template better? Share your feedback here: https://forms.gle/ybq9Krt8jtBL3iCk7
 
-ARG PYTHON_VERSION=3.10.13
+ARG PYTHON_VERSION=3.12
 FROM python:${PYTHON_VERSION}-slim AS base
 
 # Prevents Python from writing pyc files.
@@ -44,13 +44,16 @@ USER appuser
 # Copy the source code into the container.
 # to get files from a parent file, this docker needs to
 # be build from the parent directory
-COPY reg_valves/reg_valves.py .
-COPY reg_valves/wemos.py .
+COPY reg_valves/main.py .
+COPY reg_valves/api.py .
+COPY reg_valves/manager.py .
+COPY reg_valves/mqtt_discoverer.py .
+COPY reg_valves/esp32.py .
+COPY reg_valves/valve.py .
 COPY shared/mqttclient.py .
-COPY shared/restclient.py .
 
 # Expose the port that the application listens on.
-EXPOSE 5001/tcp
+EXPOSE 8080/tcp
 
 # Run the application.
-CMD ["python3", "reg_valves.py", "-p", "5001", "-l", "DEBUG"]
+CMD ["python3", "main.py", "-l", "DEBUG"]

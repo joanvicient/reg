@@ -42,13 +42,13 @@ class MqttClient:
         self.client = mqtt.Client(self.id, clean_session=False)
         self.client.on_connect=self.on_connect
         self.client.on_message = self.on_message
-        self.client.will_set("reg/"+self.id, payload="OFF", qos=0, retain=True)
+        self.client.will_set(self.id, payload="OFF", qos=0, retain=True)
         self.client.connect(self.broker_hostname, self.port)
         #self.client.loop_forever() #blocks execution
         self.client.loop_start() #creates new thread
         #self.loop_publish_id()
 
-        self.client.publish("reg/"+self.id,payload="ON", qos=0, retain=True)
+        self.client.publish(self.id, payload="ON", qos=0, retain=True)
 
     def stop(self):
         self.client.loop_stop()
