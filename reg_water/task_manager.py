@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 import logging
 import threading
-from task import Task
+from task import Task, WeekDay
 from apscheduler.schedulers.background import BackgroundScheduler
 import requests
 import pickle
@@ -124,10 +124,16 @@ if __name__ == '__main__':
     now = datetime.now()
     current_weekday = now.weekday()
     current_hour = now.hour
-    task1 = Task("non_existing_valve1", current_hour, [current_weekday], 1)
-    task2 = Task("non_existing_valve2", current_hour, [current_weekday+1], 1)
-    task3 = Task("non_existing_valve3", current_hour, [current_weekday], 1)
-    task4 = Task("non_existing_valve4", current_hour+2, [current_weekday], 1)
+    
+    # Convert weekday numbers to WeekDay enum
+    weekday_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    current_weekday_name = weekday_names[current_weekday]
+    next_weekday_name = weekday_names[(current_weekday + 1) % 7]
+    
+    task1 = Task("non_existing_valve1", current_hour, [WeekDay(current_weekday_name)], 1)
+    task2 = Task("non_existing_valve2", current_hour, [WeekDay(next_weekday_name)], 1)
+    task3 = Task("non_existing_valve3", current_hour, [WeekDay(current_weekday_name)], 1)
+    task4 = Task("non_existing_valve4", current_hour+2, [WeekDay(current_weekday_name)], 1)
 
     task_manager.add_task(task1)
     task_manager.add_task(task2)
