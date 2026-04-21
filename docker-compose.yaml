@@ -1,0 +1,66 @@
+version: '3.8'
+
+networks:
+  reg_network:
+    driver: bridge
+
+services:
+  mosquitto:
+    image: jvicient/reg_mosquitto:latest
+    container_name: reg_mosquitto
+    networks:
+      - reg_network
+    ports:
+      - 1883:1883
+      - 9001:9001
+    restart: unless-stopped
+    labels:
+      - "homepage.group=Reg System"
+      - "homepage.name=MQTT Broker"
+      - "homepage.icon=mosquitto.png"
+      - "homepage.href=http://localhost:1883"
+      - "homepage.description=MQTT message broker for IoT devices"
+
+  reg_valves:
+    image: jvicient/reg_valves:2.0.0
+    container_name: reg_valves
+    environment:
+      - PUID=1000
+      - PGID=100
+      - TZ=Europe/Madrid
+      - MQTT_BROKER_HOST=reg_mosquitto
+      - MQTT_BROKER_PORT=1883
+    networks:
+      - reg_network
+    ports:
+      - 5501:8080
+    labels:
+      - homepage.name=reg_valves
+      - homepage.group=REG
+      - homepage.href=http://qnap.local:5501
+      - homepage.icon=si-leaf
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+  reg_water:
+    image: jvicient/reg_water:2.0.0
+    container_name: reg_water
+    environment:
+      - PUID=1000
+      - PGID=100
+      - TZ=Europe/Madrid
+      - MQTT_BROKER_HOST=reg_mosquitto
+      - MQTT_BROKER_PORT=1883
+    networks:
+      - reg_network
+    ports:
+      - 5502:8080
+    labels:
+      - homepage.name=reg_water
+      - homepage.group=REG
+      - homepage.href=http://qnap.local:5502
+      - homepage.icon=si-water
+    restart: unless-stopped
+    stdin_open: true
+    tty: true

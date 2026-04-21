@@ -44,13 +44,13 @@ USER appuser
 # Copy the source code into the container.
 # to get files from a parent file, this docker needs to
 # be build from the parent directory
-COPY reg_water/reg_water.py .
-COPY reg_water/autosavedict.py .
-COPY shared/mqttclient.py .
-COPY shared/restclient.py .
+COPY reg_water/main.py .
+COPY reg_water/task_manager.py .
+COPY reg_water/task.py .
+COPY reg_water/api.py .
 
 # Expose the port that the application listens on.
-EXPOSE 5002/tcp
+EXPOSE 8080/tcp
 
 # Run the application.
-CMD ["python3", "reg_water.py", "-p", "5002"]
+CMD ["python3", "main.py"]
