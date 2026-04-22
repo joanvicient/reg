@@ -12,7 +12,10 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 class TaskManager:
-    def __init__(self):
+    def __init__(self, valves_host: str, valves_port: str):
+        self.valves_host = valves_host
+        self.valves_port = valves_port
+
         self.tasks = {}
         self.lock = threading.Lock()
 
@@ -77,7 +80,7 @@ class TaskManager:
     def water(self, valve: str, duration: int):
         logger.info(f"Watering {valve} for {duration} seconds")
         try:
-            url = f"http://192.168.0.34:8080/reg/valves/{valve}/water"
+            url = f"http://{self.valves_host}:{self.valves_port}/reg/valves/{valve}/water"
             r = requests.post(url)
             r.raise_for_status()
             return True
@@ -118,13 +121,13 @@ class TaskManager:
 #########3 tests ##################
 
 if __name__ == '__main__':
-    task_manager = TaskManager()
+    task_manager = TaskManager("nasf8b4c9.local", "5501")
 
     from datetime import datetime
     now = datetime.now()
     current_weekday = now.weekday()
     current_hour = now.hour
-    
+
     # Convert weekday numbers to WeekDay enum
     weekday_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     current_weekday_name = weekday_names[current_weekday]

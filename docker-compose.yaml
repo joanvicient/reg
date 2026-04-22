@@ -44,14 +44,14 @@ services:
     tty: true
 
   reg_water:
-    image: jvicient/reg_water:2.0.1
+    image: jvicient/reg_water:2.0.2
     container_name: reg_water
     environment:
       - PUID=1000
       - PGID=100
       - TZ=Europe/Madrid
-      - MQTT_BROKER_HOST=reg_mosquitto
-      - MQTT_BROKER_PORT=1883
+      - REG_VALVES_HOST=reg_valves
+      - REG_VALVES_PORT=8080
     volumes:
       - /share/Container/reg:/data
     networks:
