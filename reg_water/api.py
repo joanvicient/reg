@@ -13,7 +13,7 @@ class TaskApi:
     def __init__(self, task_manager: TaskManager):
         self.task_manager = task_manager
         self.app = FastAPI(
-            title="Reg Valves API",
+            title="reg_water API",
             description="API for get and set irrigation valves schedduling",
             version="1.0.0"
         )

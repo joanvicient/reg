@@ -21,7 +21,7 @@ class TaskManager:
 
         #using pickle to save and restore the tasks
         self._pickle_name = None
-        self._init_pickle()
+        self.tasks = self._init_pickle()
     
         # Initialize the scheduler
         self.scheduler = BackgroundScheduler()
@@ -104,7 +104,7 @@ class TaskManager:
             self._pickle_name = '/tmp/autosave.pickle'
 
         logger.info(f"Using autosave file {self._pickle_name}")
-        self._load_pickle()
+        return self._load_pickle()
 
     def _load_pickle(self):
         """Loads the dictionary from a file if it exists."""

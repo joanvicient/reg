@@ -12,7 +12,7 @@ class ValveApi:
     def __init__(self, valves_manager: ValvesManager):
         self.valves_manager = valves_manager
         self.app = FastAPI(
-            title="Reg Valves API",
+            title="reg_valves API",
             description="API for discovering and controlling irrigation valves via ESP devices",
             version="1.0.0"
         )
