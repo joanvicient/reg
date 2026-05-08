@@ -61,13 +61,24 @@ class ValveApi:
                 raise HTTPException(status_code=404, detail=f"Valve {valve_name} not found or test failed")
 
         @self.app.post("/reg/valves/{valve_name}/water")
-        def water_valve(valve_name: str):
-            """Water a valve"""
-            result = self.valves_manager.water_valve(valve_name)
+        def water_valve(valve_name: str, duration: int = 20):
+            """Add a watering job for a valve"""
+            job_id = self.valves_manager.add_job(valve_name, duration)
+            return {"message": f"Watering job added for valve {valve_name}", "job_id": job_id, "success": True}
+
+        @self.app.get("/reg/jobs/")
+        def get_jobs():
+            """Get all jobs"""
+            return {"jobs": self.valves_manager.get_jobs()}
+
+        @self.app.get("/reg/jobs/{job_id}")
+        def get_job(job_id: str):
+            """Get a specific job"""
+            result = self.valves_manager.get_job(job_id)
             if result:
-                return {"message": f"Valve {valve_name} watered successfully", "success": True}
+                return result
             else:
-                raise HTTPException(status_code=404, detail=f"Valve {valve_name} not found or water failed")
+                raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
 
     def run(self, host="0.0.0.0", port=8080):
         self.setup_routes()
