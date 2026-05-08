@@ -27,6 +27,8 @@ class TaskManager:
         self.scheduler = BackgroundScheduler()
         self.scheduler.add_job(self.my_watering_task, 'cron', minute=0)
         self.scheduler.start()
+        logger.info("Watering scheduler started at " + datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+
 
     def get_tasks(self):
         with self.lock:
@@ -81,7 +83,7 @@ class TaskManager:
         logger.info(f"Watering {valve} for {duration} seconds")
         try:
             url = f"http://{self.valves_host}:{self.valves_port}/reg/valves/{valve}/water"
-            r = requests.post(url)
+            r = requests.post(url, timeout=60)
             r.raise_for_status()
             return True
 

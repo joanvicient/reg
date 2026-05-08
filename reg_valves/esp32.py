@@ -152,7 +152,7 @@ class Esp32:
         #https://codebeautify.org/jsonviewer
         url = "http://" + ip + "/json"
         try:
-            r = requests.get(url)
+            r = requests.get(url, timeout=0.5)
             if r.status_code == requests.codes.ok:
                 data = r.json()
                 sensors = data["Sensors"]
